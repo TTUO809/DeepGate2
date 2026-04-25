@@ -1,6 +1,8 @@
 emb/*
 exp/*
 .vscode
+dataset/rawaig/*
+*.npz
 
 *__pycache__
 *.pyc

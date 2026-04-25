@@ -46,12 +46,17 @@ class ModelWithLoss(torch.nn.Module):
         rc_loss = self.cls_loss(is_rc.to(self.device), batch.is_rc.to(self.device))
         # Task 3: Function Prediction
         # emb = torch.cat([hs, hf], dim=-1)
-        node_a = hf[batch.tt_pair_index[0]]
-        node_b = hf[batch.tt_pair_index[1]]
-        emb_dis = 1 - torch.cosine_similarity(node_a, node_b, eps=1e-8)
-        emb_dis_z = zero_normalization(emb_dis)
-        tt_dis_z = zero_normalization(batch.tt_dis)
-        func_loss = self.reg_loss(emb_dis_z.to(self.device), tt_dis_z.to(self.device))
+        
+        if getattr(self.model.args, 'no_func', False):
+            # 若不計算功能預測損失，則直接將 func_loss 設為 0，並確保它不會影響總損失的計算
+            func_loss = torch.zeros(1, device=self.device).squeeze()
+        else:
+            node_a = hf[batch.tt_pair_index[0]]
+            node_b = hf[batch.tt_pair_index[1]]
+            emb_dis = 1 - torch.cosine_similarity(node_a, node_b, eps=1e-8)
+            emb_dis_z = zero_normalization(emb_dis)
+            tt_dis_z = zero_normalization(batch.tt_dis)
+            func_loss = self.reg_loss(emb_dis_z.to(self.device), tt_dis_z.to(self.device))
         loss_stats = {'LProb': prob_loss, 'LRC': rc_loss, 'LFunc': func_loss}
 
         return hs, hf, loss_stats
@@ -111,8 +116,10 @@ class MLPGNNTrainer(object):
                 batch = batch.to(self.args.device)
             data_time.update(time.time() - end)
             hs, hf, loss_stats = model_with_loss(batch)
-            loss = loss_stats['LProb'] * args.Prob_weight + loss_stats['LRC'] * args.RC_weight + loss_stats['LFunc'] * args.Func_weight
-            loss /= (args.Prob_weight + args.RC_weight + args.Func_weight)
+            func_w = 0.0 if getattr(args, 'no_func', False) else args.Func_weight
+            loss = loss_stats['LProb'] * args.Prob_weight + loss_stats['LRC'] * args.RC_weight + loss_stats['LFunc'] * func_w
+            total_w = args.Prob_weight + args.RC_weight + func_w
+            loss /= max(total_w, 1.0)
             loss = loss.mean()
             loss_stats['loss'] = loss
             if phase == 'train':

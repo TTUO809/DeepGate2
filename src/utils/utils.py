@@ -184,21 +184,39 @@ def generate_orthogonal_vectors(n, dim):
 
     return vectors, max_cos_sim
 
-def generate_hs_init(G, hs, no_dim):
-    max_sim = 0
+# 定義一個函數來生成初始的 pi 向量，並計算它們之間的最大相似度
+def generate_hs_init(G, hs, no_dim, homo_pi_init=False):
+    # G: 圖結構資料（含節點資訊）；hs: 節點隱藏狀態張量；
+    # no_dim: 向量維度；homo_pi_init: 是否使用同質初始化
+    max_sim = 0  # 初始化整體最大相似度為 0
     if G.batch == None:
+        # 若沒有 batch 資訊，表示只有一張圖
         batch_size = 1
     else:
+        # 取 batch 中最大的索引值加 1，得到批次內的圖數量
         batch_size = G.batch.max().item() + 1
-    for batch_idx in range(batch_size):
+    for batch_idx in range(batch_size):  # 逐一遍歷每張圖
         if G.batch == None:
+            # 單圖情況：找出所有 forward_level 為 0 的節點（即主要輸入節點 PI）
             pi_mask = (G.forward_level == 0)
         else:
+            # 多圖情況：同時篩選屬於當前批次且 forward_level 為 0 的節點
             pi_mask = (G.batch == batch_idx) & (G.forward_level == 0)
-        pi_node = G.forward_index[pi_mask]
-        pi_vec, batch_max_sim = generate_orthogonal_vectors(len(pi_node), no_dim)
+        pi_node = G.forward_index[pi_mask]  # 取出 PI 節點的實際索引
+        if homo_pi_init:
+            # 同質初始化：所有 PI 節點共用同一個單位向量（各維度均等分配）
+            shared = np.ones(no_dim, dtype=np.float32) / np.sqrt(no_dim)
+            # 將相同的向量複製給每個 PI 節點
+            pi_vec = [shared for _ in range(len(pi_node))]
+            # 所有向量完全相同，相似度為 1.0
+            batch_max_sim = 1.0
+        else:
+            # 非同質初始化：呼叫函數生成盡量互相正交的向量，並回傳最大相似度
+            pi_vec, batch_max_sim = generate_orthogonal_vectors(len(pi_node), no_dim)
         if batch_max_sim > max_sim:
+            # 更新全域最大相似度（取所有批次中的最大值）
             max_sim = batch_max_sim
+        # 將生成的向量指派給對應 PI 節點的隱藏狀態
         hs[pi_node] = torch.tensor(pi_vec, dtype=torch.float)
-    
-    return hs, max_sim
+
+    return hs, max_sim  # 回傳更新後的隱藏狀態與最大相似度

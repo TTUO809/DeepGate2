@@ -101,7 +101,9 @@ class MLPGate(nn.Module):
             hs_init = hs_init.to(self.device)
         else:
             hs_init = torch.zeros(num_nodes, self.dim_hidden)
-            hs_init, max_sim = generate_hs_init(G, hs_init, self.dim_hidden)
+            # 意義：生成初始的 pi 向量，並計算它們之間的最大相似度（如果不是同質初始化）
+            hs_init, max_sim = generate_hs_init(G, hs_init, self.dim_hidden,
+                                                homo_pi_init=getattr(self.args, 'homo_pi_init', False))
             hs_init = hs_init.to(self.device)
         
         # initialize the function hidden state

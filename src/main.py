@@ -87,10 +87,13 @@ def main(args):
         num_replicas=args.world_size,
         rank=args.rank
     )
+    _persistent = args.num_workers > 0
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=False,
-                              num_workers=args.num_workers, sampler=train_sampler)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
-                            sampler=val_sampler)
+                              num_workers=args.num_workers, sampler=train_sampler,
+                              pin_memory=True, persistent_workers=_persistent)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
+                            num_workers=args.num_workers, sampler=val_sampler,
+                            pin_memory=True, persistent_workers=_persistent)
 
     #################
     # Model

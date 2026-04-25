@@ -53,6 +53,10 @@ def get_parse_args():
 
     # dataset settings
     parser.add_argument('--no_rc', default=False, action='store_true')
+    parser.add_argument('--no_func', default=False, action='store_true',
+                             help='Disable pairwise TT difference loss (PA2 ablation)')
+    parser.add_argument('--homo_pi_init', default=False, action='store_true',
+                             help='Use homogeneous PI init instead of orthogonal (PA2 ablation)')
     parser.add_argument('--data_dir', default='../data/random_circuits',
                              type=str, help='the path to the dataset')
     parser.add_argument('--enable_aig', default=True, action='store_true')      # default enable aig, no support MIG now 
