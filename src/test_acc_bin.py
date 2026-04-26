@@ -45,7 +45,12 @@ def test(args):
         if len(NAME_LIST) > 0 and g.name not in NAME_LIST:
             continue
         res = detector.run(g)
-        hs, hf, prob, is_rc = res['results']
+        # PA3: model now returns 5-tuple (hs, hf, prob, trans, is_rc); keep 4-tuple compat.
+        _r = res['results']
+        if len(_r) == 5:
+            hs, hf, prob, _trans, is_rc = _r
+        else:
+            hs, hf, prob, is_rc = _r
         node_emb = hf
         tp = 0
         tn = 0

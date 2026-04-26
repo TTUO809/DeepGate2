@@ -286,7 +286,7 @@ def aig_parse_pyg(iclauses, n_vars, n_clauses, prob_loss):
     return graph
 
 def parse_pyg_mlpgate(x, edge_index, tt_dis, min_tt_dis, tt_pair_index, y, rc_pair_index, is_rc, \
-    use_edge_attr=False, reconv_skip_connection=False, no_node_cop=False, node_reconv=False, un_directed=False, num_gate_types=9, dim_edge_feature=32, logic_implication=False, mask=False):
+    use_edge_attr=False, reconv_skip_connection=False, no_node_cop=False, node_reconv=False, un_directed=False, num_gate_types=9, dim_edge_feature=32, logic_implication=False, mask=False, trans_y=None):
     x_torch = construct_node_feature(x, no_node_cop, node_reconv, num_gate_types)
 
     tt_pair_index = torch.tensor(tt_pair_index, dtype=torch.long)
@@ -322,6 +322,12 @@ def parse_pyg_mlpgate(x, edge_index, tt_dis, min_tt_dis, tt_pair_index, y, rc_pa
     # add indices for gate types
     graph.gate = torch.tensor(x[:, 1:2], dtype=torch.float)
     graph.prob = torch.tensor(y).reshape((len(x), 1))
+    if trans_y is None:
+        # PA3: fall back to analytic 2*p*(1-p) so legacy datasets without trans_prob
+        # labels still have a sane (non-NaN) target tensor on the graph.
+        graph.trans_prob = (2.0 * graph.prob * (1.0 - graph.prob)).float()
+    else:
+        graph.trans_prob = torch.tensor(trans_y).reshape((len(x), 1)).float()
 
     if un_directed:
         graph = ToUndirected()(graph)

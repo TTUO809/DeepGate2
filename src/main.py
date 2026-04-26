@@ -17,7 +17,7 @@ from trains.train_factory import train_factory
 from datasets.mig_dataset import MIGDataset
 from datasets.mlpgate_dataset import MLPGateDataset
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+os.environ['CUDA_LAUNCH_BLOCKING'] = '0'
 
 def main(args):
     print('==> Using settings {}'.format(args))

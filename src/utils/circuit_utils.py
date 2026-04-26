@@ -3,6 +3,7 @@ Utility functions for circuit: including random pattern generation, logic simula
     reconvergence identification, 
 '''
 import torch
+import numpy as np
 from numpy.random import randint
 import copy
 from collections import Counter
@@ -1098,5 +1099,42 @@ def simulator_truth_table_random(x_data, PI_indexes, level_list, fanin_list, gat
 
         for idx in range(len(x_data)):
             truth_table[idx].append(state[idx])
-    
+
+    return truth_table
+
+
+def simulator_truth_table_markov(x_data, PI_indexes, level_list, fanin_list, gate_to_index,
+                                 num_patterns=15000, flip_prob=0.1):
+    """PA3: Markov stimulus. Each PI flips with probability `flip_prob` per cycle.
+
+    Yields an ordered per-node sequence so transition counts on consecutive
+    patterns are well-defined and topology-dependent (unlike i.i.d. uniform,
+    where alpha = 2*p*(1-p) holds analytically).
+    """
+    truth_table = [[] for _ in range(len(x_data))]
+    no_PIs = len(PI_indexes)
+    pi_vector = randint(2, size=no_PIs)
+
+    for pattern_idx in range(num_patterns):
+        if pattern_idx > 0:
+            flip_mask = np.random.rand(no_PIs) < flip_prob
+            pi_vector = np.where(flip_mask, 1 - pi_vector, pi_vector)
+
+        state = [-1] * len(x_data)
+        for k, pi_idx in enumerate(PI_indexes):
+            state[pi_idx] = int(pi_vector[k])
+
+        for level in range(1, len(level_list), 1):
+            for node_idx in level_list[level]:
+                source_signals = []
+                for pre_idx in fanin_list[node_idx]:
+                    source_signals.append(state[pre_idx])
+                if len(source_signals) > 0:
+                    gate_type = x_data[node_idx][1]
+                    res = logic(gate_type, source_signals, gate_to_index)
+                    state[node_idx] = res
+
+        for idx in range(len(x_data)):
+            truth_table[idx].append(state[idx])
+
     return truth_table

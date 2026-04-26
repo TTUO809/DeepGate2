@@ -31,9 +31,14 @@ class ModelWithLoss(torch.nn.Module):
 
     def forward(self, batch):
         preds, max_sim = self.model(batch)
-        hs, hf, prob, is_rc = preds
+        hs, hf, prob, trans, is_rc = preds
         # Task 1: Probability Prediction
         prob_loss = self.reg_loss(prob.to(self.device), batch.prob.to(self.device))
+        # Task 1b (PA3): Switching / transition probability prediction
+        if getattr(self.model.args, 'no_trans', False):
+            trans_loss = torch.zeros(1, device=self.device).squeeze()
+        else:
+            trans_loss = self.reg_loss(trans.to(self.device), batch.trans_prob.to(self.device))
         # Task 2: Structural Prediction
         # node_a = hs[batch.rc_pair_index[0]]
         # node_b = hs[batch.rc_pair_index[1]]
@@ -57,7 +62,7 @@ class ModelWithLoss(torch.nn.Module):
             emb_dis_z = zero_normalization(emb_dis)
             tt_dis_z = zero_normalization(batch.tt_dis)
             func_loss = self.reg_loss(emb_dis_z.to(self.device), tt_dis_z.to(self.device))
-        loss_stats = {'LProb': prob_loss, 'LRC': rc_loss, 'LFunc': func_loss}
+        loss_stats = {'LProb': prob_loss, 'LRC': rc_loss, 'LFunc': func_loss, 'LTrans': trans_loss}
 
         return hs, hf, loss_stats
 
@@ -117,8 +122,12 @@ class MLPGNNTrainer(object):
             data_time.update(time.time() - end)
             hs, hf, loss_stats = model_with_loss(batch)
             func_w = 0.0 if getattr(args, 'no_func', False) else args.Func_weight
-            loss = loss_stats['LProb'] * args.Prob_weight + loss_stats['LRC'] * args.RC_weight + loss_stats['LFunc'] * func_w
-            total_w = args.Prob_weight + args.RC_weight + func_w
+            trans_w = 0.0 if getattr(args, 'no_trans', False) else getattr(args, 'Trans_weight', 0.0)
+            loss = (loss_stats['LProb'] * args.Prob_weight
+                    + loss_stats['LRC'] * args.RC_weight
+                    + loss_stats['LFunc'] * func_w
+                    + loss_stats['LTrans'] * trans_w)
+            total_w = args.Prob_weight + args.RC_weight + func_w + trans_w
             loss /= max(total_w, 1.0)
             loss = loss.mean()
             loss_stats['loss'] = loss
@@ -176,7 +185,7 @@ class MLPGNNTrainer(object):
             reg_loss_func = _loss_factory[reg_loss]()
         if cls_loss in _loss_factory.keys():
             cls_loss_func = _loss_factory[cls_loss]()
-        loss_states = ['loss', 'LProb', 'LRC', 'LFunc']
+        loss_states = ['loss', 'LProb', 'LRC', 'LFunc', 'LTrans']
         return loss_states, reg_loss_func, cls_loss_func
 
     def val(self, epoch, data_loader, local_rank):

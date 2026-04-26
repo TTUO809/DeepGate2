@@ -55,8 +55,12 @@ def get_parse_args():
     parser.add_argument('--no_rc', default=False, action='store_true')
     parser.add_argument('--no_func', default=False, action='store_true',
                              help='Disable pairwise TT difference loss (PA2 ablation)')
+    parser.add_argument('--no_trans', default=False, action='store_true',
+                             help='Disable transition-probability loss (PA3 ablation)')
     parser.add_argument('--homo_pi_init', default=False, action='store_true',
                              help='Use homogeneous PI init instead of orthogonal (PA2 ablation)')
+    parser.add_argument('--label_file', default='labels.npz', type=str,
+                             help='Filename of labels npz under --data_dir (PA3: e.g. labels_markov.npz)')
     parser.add_argument('--data_dir', default='../data/random_circuits',
                              type=str, help='the path to the dataset')
     parser.add_argument('--enable_aig', default=True, action='store_true')      # default enable aig, no support MIG now 
@@ -179,6 +183,8 @@ def get_parse_args():
     parser.add_argument('--Prob_weight', type=float, default=5)
     parser.add_argument('--RC_weight', type=float, default=3)
     parser.add_argument('--Func_weight', type=float, default=1)
+    parser.add_argument('--Trans_weight', type=float, default=0,
+                             help='PA3: weight for transition-probability (switching activity) loss')
 
 
     # train and val
@@ -236,7 +242,7 @@ def get_parse_args():
         assert args.un_directed, 'When using convgnn, the graph should be undirected.'
     
     args.circuit_file = "graphs.npz"
-    args.label_file = "labels.npz"
+    # PA3: --label_file is now a CLI arg (default 'labels.npz'); do not overwrite here.
 
     if args.use_logic_diff:
         assert args.logic_diff_embedding == "positional", "Only support positional embedding for the logic difference." 

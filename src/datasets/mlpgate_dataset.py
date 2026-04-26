@@ -60,6 +60,10 @@ class MLPGateDataset(InMemoryDataset):
             name = 'inmemory'
         if self.args.no_rc:
             name += '_norc'
+        # PA3: distinct cache per label file so Markov labels don't collide with i.i.d.
+        label_stem = osp.splitext(osp.basename(self.args.label_file))[0]
+        if label_stem != 'labels':
+            name += '_' + label_stem
         return osp.join(self.root, name)
 
     @property
@@ -91,6 +95,8 @@ class MLPGateDataset(InMemoryDataset):
             min_tt_dis = labels[cir_name]['min_tt_dis']
             tt_pair_index = labels[cir_name]['tt_pair_index']
             prob = labels[cir_name]['prob']
+            # PA3: optional transition-probability label (legacy labels.npz lacks this key)
+            trans_prob = labels[cir_name]['trans_prob'] if 'trans_prob' in labels[cir_name] else None
 
             if self.args.no_rc:
                 rc_pair_index = [[0, 1]]
@@ -108,10 +114,11 @@ class MLPGateDataset(InMemoryDataset):
             # check the gate types
             # assert (x[:, 1].max() == (len(self.args.gate_to_index)) - 1), 'The gate types are not consistent.'
             graph = parse_pyg_mlpgate(
-                x, edge_index, tt_dis, min_tt_dis, tt_pair_index, prob, rc_pair_index, is_rc, 
+                x, edge_index, tt_dis, min_tt_dis, tt_pair_index, prob, rc_pair_index, is_rc,
                 self.args.use_edge_attr, self.args.reconv_skip_connection, self.args.no_node_cop,
                 self.args.node_reconv, self.args.un_directed, self.args.num_gate_types,
-                self.args.dim_edge_feature, self.args.logic_implication, self.args.mask
+                self.args.dim_edge_feature, self.args.logic_implication, self.args.mask,
+                trans_y=trans_prob,
             )
             graph.name = cir_name
             data_list.append(graph)

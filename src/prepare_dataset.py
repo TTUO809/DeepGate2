@@ -36,6 +36,13 @@ def get_parse_args():
     parser.add_argument('--start_idx', default=0, type=int)
     parser.add_argument('--end_idx', default=10000, type=int)
     parser.add_argument('--aig_folder', default='./dataset/rawaig')
+    # PA3: Markov stimulus + transition-probability labels
+    parser.add_argument('--markov', action='store_true',
+                        help='Use Markov stimulus (each PI flips with --flip_prob each cycle)')
+    parser.add_argument('--flip_prob', type=float, default=0.1,
+                        help='Per-PI flip probability per cycle for --markov stimulus')
+    parser.add_argument('--label_out', default='labels.npz',
+                        help='Output filename (under data/<exp_id>/) for the labels file')
 
     args = parser.parse_args()
     return args
@@ -119,27 +126,40 @@ if __name__ == '__main__':
         # PI
         PI_index = level_list[0]
 
-        # Simulation 
+        # Simulation
         start_time = time.time()
-        if len(PI_index) < 13:
+        if args.markov:
+            # PA3: Markov stimulus always uses NO_PATTERNS (ordered) so transition rates are well-defined.
+            tt = circuit_utils.simulator_truth_table_markov(
+                x_data, PI_index, level_list, fanin_list, gate_to_index,
+                num_patterns=NO_PATTERNS, flip_prob=args.flip_prob,
+            )
+        elif len(PI_index) < 13:
             tt = circuit_utils.simulator_truth_table(x_data, PI_index, level_list, fanin_list, gate_to_index)
         else:
             tt = circuit_utils.simulator_truth_table_random(x_data, PI_index, level_list, fanin_list, gate_to_index, NO_PATTERNS)
         y = [0] * len(x_data)
+        trans_y = [0.0] * len(x_data)
         for idx in range(len(x_data)):
-            y[idx] = np.sum(tt[idx]) / len(tt[idx])
+            arr = np.asarray(tt[idx], dtype=np.int8)
+            y[idx] = float(arr.sum()) / len(arr)
+            if len(arr) > 1:
+                trans_y[idx] = float(np.mean(arr[1:] != arr[:-1]))
+            else:
+                trans_y[idx] = 0.0
 
         # Pair
         tt_pair_index, tt_dis, min_tt_dis = gen_tt_pair(x_data, fanin_list, fanout_list, level_list, y)
         end_time = time.time()
 
-        # Save 
+        # Save
         x_data = utils.rename_node(x_data)
         graphs[circuit_name] = {'x': np.array(x_data).astype('float32'), "edge_index": np.array(edge_index)}
         labels[circuit_name] = {
-            'tt_pair_index': np.array(tt_pair_index), 'tt_dis': np.array(tt_dis).astype('float32'), 
-            'prob': np.array(y).astype('float32'), 
-            'min_tt_dis': np.array(min_tt_dis).astype('float32'), 
+            'tt_pair_index': np.array(tt_pair_index), 'tt_dis': np.array(tt_dis).astype('float32'),
+            'prob': np.array(y).astype('float32'),
+            'trans_prob': np.array(trans_y).astype('float32'),
+            'min_tt_dis': np.array(min_tt_dis).astype('float32'),
         }
         tot_nodes += len(x_data)
         tot_pairs += len(tt_dis)
@@ -155,7 +175,7 @@ if __name__ == '__main__':
         cir_idx += 1
 
     output_filename_circuit = os.path.join(output_folder, 'graphs.npz')
-    output_filename_labels = os.path.join(output_folder, 'labels.npz')
+    output_filename_labels = os.path.join(output_folder, args.label_out)
     print('# Graphs: {:}, # Nodes: {:}'.format(len(graphs), tot_nodes))
     print('Total pairs: ', tot_pairs)
     np.savez_compressed(output_filename_circuit, circuits=graphs)

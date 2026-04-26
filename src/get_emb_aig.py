@@ -84,7 +84,11 @@ def test(args):
         start_time = time.time()
         res = detector.run(g)
         end_time = time.time()
-        hs, hf, prob, is_rc = res['results']
+        _r = res['results']
+        if len(_r) == 5:
+            hs, hf, prob, _trans, is_rc = _r
+        else:
+            hs, hf, prob, is_rc = _r
         print("Circuit: {}, Size: {:}, Time: {:.2f}".format(aig_name, len(x_data), end_time-start_time))
         # acc = get_function_acc(g, hf)
         # print("ACC: {:.2f}%".format(acc/100))

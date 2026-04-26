@@ -79,8 +79,10 @@ class MLPGate(nn.Module):
         self.update_not_strc = GRU(self.dim_hidden, self.dim_hidden)
         self.update_not_func = GRU(self.dim_hidden, self.dim_hidden)
 
-        # Readout 
+        # Readout
         self.readout_prob = MLP(self.dim_hidden, args.dim_mlp, 1, num_layer=3, p_drop=0.2, norm_layer='batchnorm', act_layer='relu')
+        # PA3: switching-activity (transition probability) head; sigmoid since target ∈ [0,1]
+        self.readout_trans = MLP(self.dim_hidden, args.dim_mlp, 1, num_layer=3, p_drop=0.2, norm_layer='batchnorm', act_layer='relu', sigmoid=True)
         self.readout_rc = MLP(self.dim_hidden * 2, args.dim_mlp, 1, num_layer=3, p_drop=0.2, norm_layer='batchnorm', sigmoid=True)
 
         # consider the embedding for the LSTM/GRU model initialized by non-zeros
@@ -173,10 +175,11 @@ class MLPGate(nn.Module):
 
         # Readout
         prob = self.readout_prob(hf)
+        trans = self.readout_trans(hf)
         rc_emb = torch.cat([hs[G.rc_pair_index[0]], hs[G.rc_pair_index[1]]], dim=1)
         is_rc = self.readout_rc(rc_emb)
 
-        return hs, hf, prob, is_rc
+        return hs, hf, prob, trans, is_rc
 
     
     def imply_mask(self, G, h, h_true, h_false):
