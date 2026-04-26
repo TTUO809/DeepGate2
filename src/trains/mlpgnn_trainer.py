@@ -34,7 +34,7 @@ class ModelWithLoss(torch.nn.Module):
         hs, hf, prob, trans, is_rc = preds
         # Task 1: Probability Prediction
         prob_loss = self.reg_loss(prob.to(self.device), batch.prob.to(self.device))
-        # Task 1b (PA3): Switching / transition probability prediction
+        # Task 1b (PA2-3): Switching / transition probability prediction
         if getattr(self.model.args, 'no_trans', False):
             trans_loss = torch.zeros(1, device=self.device).squeeze()
         else:

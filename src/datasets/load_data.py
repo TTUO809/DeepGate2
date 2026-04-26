@@ -323,7 +323,7 @@ def parse_pyg_mlpgate(x, edge_index, tt_dis, min_tt_dis, tt_pair_index, y, rc_pa
     graph.gate = torch.tensor(x[:, 1:2], dtype=torch.float)
     graph.prob = torch.tensor(y).reshape((len(x), 1))
     if trans_y is None:
-        # PA3: fall back to analytic 2*p*(1-p) so legacy datasets without trans_prob
+        # PA2-3: fall back to analytic 2*p*(1-p) so legacy datasets without trans_prob
         # labels still have a sane (non-NaN) target tensor on the graph.
         graph.trans_prob = (2.0 * graph.prob * (1.0 - graph.prob)).float()
     else:

@@ -79,9 +79,9 @@ class MLPGate(nn.Module):
         self.update_not_strc = GRU(self.dim_hidden, self.dim_hidden)
         self.update_not_func = GRU(self.dim_hidden, self.dim_hidden)
 
-        # Readout
+        # Readout 
         self.readout_prob = MLP(self.dim_hidden, args.dim_mlp, 1, num_layer=3, p_drop=0.2, norm_layer='batchnorm', act_layer='relu')
-        # PA3: switching-activity (transition probability) head; sigmoid since target ∈ [0,1]
+        # PA2-3: switching-activity (transition probability) head; sigmoid since target ∈ [0,1]
         self.readout_trans = MLP(self.dim_hidden, args.dim_mlp, 1, num_layer=3, p_drop=0.2, norm_layer='batchnorm', act_layer='relu', sigmoid=True)
         self.readout_rc = MLP(self.dim_hidden * 2, args.dim_mlp, 1, num_layer=3, p_drop=0.2, norm_layer='batchnorm', sigmoid=True)
 

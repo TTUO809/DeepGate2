@@ -1105,35 +1105,55 @@ def simulator_truth_table_random(x_data, PI_indexes, level_list, fanin_list, gat
 
 def simulator_truth_table_markov(x_data, PI_indexes, level_list, fanin_list, gate_to_index,
                                  num_patterns=15000, flip_prob=0.1):
-    """PA3: Markov stimulus. Each PI flips with probability `flip_prob` per cycle.
+    """PA2-3: Markov stimulus. Each PI flips with probability `flip_prob` per cycle.
 
     Yields an ordered per-node sequence so transition counts on consecutive
-    patterns are well-defined and topology-dependent (unlike i.i.d. uniform,
-    where alpha = 2*p*(1-p) holds analytically).
+    patterns are well-defined and topology-dependent.
+
+    - x_data: node features, used to determine gate types for simulation
+    - PI_indexes: which nodes are primary inputs (PIs)
+    - level_list: nodes grouped by logic level, for levelized simulation
+    - fanin_list: for each node, which nodes feed into it (for simulation)
+    - gate_to_index: mapping from gate type to index, used in logic function
     """
+    # Initialize the truth table: storage for the 0/1 sequence of each node
     truth_table = [[] for _ in range(len(x_data))]
     no_PIs = len(PI_indexes)
+
+    # Initial state: Randomly assign the first pattern to the Primary Inputs (PIs)
     pi_vector = randint(2, size=no_PIs)
 
     for pattern_idx in range(num_patterns):
+        # Update PI state based on Markov Chain transition probability (flip_prob)
         if pattern_idx > 0:
+            # flip_mask[i] is True if PI i should toggle its value in this cycle
             flip_mask = np.random.rand(no_PIs) < flip_prob
+            # Toggle logic: 1 - current_value flips 0->1 or 1->0
             pi_vector = np.where(flip_mask, 1 - pi_vector, pi_vector)
 
+        # Current circuit snapshot, "-1" denotes an uncomputed node
         state = [-1] * len(x_data)
+
+        # Map current PI vector values back to their corresponding global node indices
         for k, pi_idx in enumerate(PI_indexes):
             state[pi_idx] = int(pi_vector[k])
 
+        # Simulate the circuit level by level, computing the output of each gate based on its inputs
         for level in range(1, len(level_list), 1):
             for node_idx in level_list[level]:
+                # Gather pre-computed fan-in signals from lower levels
                 source_signals = []
                 for pre_idx in fanin_list[node_idx]:
                     source_signals.append(state[pre_idx])
+
+                # Perform gate-level logic evaluation only if all input signals are available (i.e., not -1)
                 if len(source_signals) > 0:
                     gate_type = x_data[node_idx][1]
+                    # 'logic' function handles the specific boolean operation (AND, OR, etc.)
                     res = logic(gate_type, source_signals, gate_to_index)
                     state[node_idx] = res
 
+        # Collect results for each node for the current pattern and append to the truth table
         for idx in range(len(x_data)):
             truth_table[idx].append(state[idx])
 

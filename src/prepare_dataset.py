@@ -36,7 +36,7 @@ def get_parse_args():
     parser.add_argument('--start_idx', default=0, type=int)
     parser.add_argument('--end_idx', default=10000, type=int)
     parser.add_argument('--aig_folder', default='./dataset/rawaig')
-    # PA3: Markov stimulus + transition-probability labels
+    # PA2-3: Markov stimulus + transition-probability labels
     parser.add_argument('--markov', action='store_true',
                         help='Use Markov stimulus (each PI flips with --flip_prob each cycle)')
     parser.add_argument('--flip_prob', type=float, default=0.1,
@@ -129,37 +129,40 @@ if __name__ == '__main__':
         # Simulation
         start_time = time.time()
         if args.markov:
-            # PA3: Markov stimulus always uses NO_PATTERNS (ordered) so transition rates are well-defined.
+            # PA2-3: Markov stimulus always uses NO_PATTERNS (ordered) so transition rates are well-defined.
             tt = circuit_utils.simulator_truth_table_markov(
                 x_data, PI_index, level_list, fanin_list, gate_to_index,
                 num_patterns=NO_PATTERNS, flip_prob=args.flip_prob,
             )
         elif len(PI_index) < 13:
+            # For small PI size, we can exhaustively enumerate the truth table.
             tt = circuit_utils.simulator_truth_table(x_data, PI_index, level_list, fanin_list, gate_to_index)
         else:
+            # For larger PI size, we use random simulation to estimate the truth table probabilities.
             tt = circuit_utils.simulator_truth_table_random(x_data, PI_index, level_list, fanin_list, gate_to_index, NO_PATTERNS)
-        y = [0] * len(x_data)
-        trans_y = [0.0] * len(x_data)
+
+        y = [0] * len(x_data)           # Probability of being 1 for each node, estimated from the truth table simulation
+        trans_y = [0.0] * len(x_data)   # Transition probability (flipping) for each node, estimated from the Markov stimulus simulation
         for idx in range(len(x_data)):
-            arr = np.asarray(tt[idx], dtype=np.int8)
-            y[idx] = float(arr.sum()) / len(arr)
-            if len(arr) > 1:
+            arr = np.asarray(tt[idx], dtype=np.int8)    # Convert to numpy array for easier processing
+            y[idx] = float(arr.sum()) / len(arr)        # Probability of being 1: count how many times the value is 1, divided by the number of patterns
+            if len(arr) > 1:    # Transition probability: count how many times the value changes (from 0 to 1 or from 1 to 0) across the patterns, divided by the number of transitions (which is len(arr) - 1)
                 trans_y[idx] = float(np.mean(arr[1:] != arr[:-1]))
-            else:
+            else:   # If there's only one pattern, we can't really define a transition probability, so we set it to 0.0 (or we could choose to ignore it in the loss)
                 trans_y[idx] = 0.0
 
         # Pair
         tt_pair_index, tt_dis, min_tt_dis = gen_tt_pair(x_data, fanin_list, fanout_list, level_list, y)
         end_time = time.time()
 
-        # Save
+        # Save 
         x_data = utils.rename_node(x_data)
         graphs[circuit_name] = {'x': np.array(x_data).astype('float32'), "edge_index": np.array(edge_index)}
         labels[circuit_name] = {
-            'tt_pair_index': np.array(tt_pair_index), 'tt_dis': np.array(tt_dis).astype('float32'),
-            'prob': np.array(y).astype('float32'),
-            'trans_prob': np.array(trans_y).astype('float32'),
-            'min_tt_dis': np.array(min_tt_dis).astype('float32'),
+            'tt_pair_index': np.array(tt_pair_index), 'tt_dis': np.array(tt_dis).astype('float32'), 
+            'prob': np.array(y).astype('float32'), 
+            'trans_prob': np.array(trans_y).astype('float32'), 
+            'min_tt_dis': np.array(min_tt_dis).astype('float32'), 
         }
         tot_nodes += len(x_data)
         tot_pairs += len(tt_dis)
